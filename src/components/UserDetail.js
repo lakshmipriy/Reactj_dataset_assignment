@@ -13,8 +13,8 @@ class UserDetail extends Component {
     calculatePoints(amount) {
         let points = 0;
         if (amount > 100) {
-            points += (amount - 100) * 2;
-            amount = amount - 100;
+            points += ((amount - 100) * 2) + 50;
+            return points;
         }
         if (amount > 50) {
             points += (amount - 50)
@@ -24,72 +24,76 @@ class UserDetail extends Component {
 
     getPointsData = () => {
         const { transactions } = this.props;
-        let monthsData = {};
+        let months = [];
         let totalPoints = 0;
-        console.log(transactions);
-        transactions.forEach(t => {
-            let { amount, created_at } = t;
-            let tMonth = new Date(created_at).toLocaleString('en-us', { month: 'short' });
-
-            amount = Math.round(parseFloat(amount.slice(1)))
-
-            const points = this.calculatePoints(amount);
-
-            if (monthsData[tMonth]) {
-                monthsData[tMonth]['amount'] += amount;
-                monthsData[tMonth]['points'] += points;
-            } else {
-                monthsData[tMonth] = {
-                    amount: amount,
-                    points: points
+        const monthsData = transactions
+            .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+            .map((t) => {
+                const amount = Math.round(parseFloat(t.amount.slice(1)))
+                const numAmount = parseFloat(t.amount.slice(1));
+                const points = this.calculatePoints(amount);
+                const tMonth = new Date(t.created_at).toLocaleString('en-us', { month: 'short' });
+                if (!months.includes(tMonth)) {
+                    months.push(tMonth)
                 }
-            }
-            totalPoints += points;
-        });
-
-        console.log(monthsData, totalPoints);
-
+                t.points = points;
+                t.month = tMonth;
+                t.numAmount = numAmount;
+                return t
+            });
+        totalPoints = monthsData.reduce((a, b) => a + b.points, 0)
         this.setState({
             monthsData,
-            totalPoints
+            totalPoints,
+            months
         })
     }
 
     componentDidMount() {
         this.getPointsData();
+    };
+
+    getAmount(m, data) {
+        const total = data.filter((d) => d.month === m).reduce((t, a) => t + a.numAmount, 0);
+        return '$' + total.toFixed(2);
     }
 
-    componentWillReceiveProps() {
-        this.getPointsData();
+    getPoints(m, data) {
+        console.log("final calculations test", data, m)
+        const total = data.filter((d) => d.month === m).reduce((t, a) => t + a.points, 0);
+        return total
     }
 
     render() {
-        const { user, transactions } = this.props;
-        const { monthsData, totalPoints } = this.state;
-        // console.log(monthsData);
+        const { user } = this.props;
+        const { monthsData, totalPoints, months } = this.state;
+        console.log(monthsData);
+
         return (
             <div className='user-card'>
                 <h4>Username : {user.name}</h4>
                 <table>
                     <thead>
-                        <th>Month</th>
-                        <th>Amount In A Month</th>
-                        <th>Points</th>
+                        <tr>
+                            <th>Month</th>
+                            <th>Amount In A Month</th>
+                            <th>Points</th>
+                        </tr>
                     </thead>
                     <tbody>
                         {
-                            monthsData && Object.keys(monthsData).map(m =>
+                            monthsData && months && months.map(m =>
                                 <tr key={m}>
                                     <td>{m}</td>
-                                    <td>${monthsData[m]['amount']}</td>
-                                    <td>{monthsData[m]['points']}</td>
+                                    <td>{this.getAmount(m, monthsData)}</td>
+                                    <td>{this.getPoints(m, monthsData)}</td>
                                 </tr>
                             )
                         }
 
-                        {monthsData && <p> Total : {totalPoints} </p>}
                     </tbody>
                 </table>
+                {monthsData && <p> Total : {totalPoints} </p>}
             </div>
         )
     }

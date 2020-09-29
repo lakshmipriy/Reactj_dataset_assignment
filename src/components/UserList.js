@@ -1,62 +1,59 @@
 import React, { Component } from 'react';
 import UserDetail from './UserDetail';
 
-class UserList extends Component{
-    constructor(props){
+class UserList extends Component {
+    constructor(props) {
         super(props);
         this.mappedTransactions = null;
         this.state = {
             users: [],
             transactions: [],
-            usersFetched: false,
-            transactionsFetched: false
-        }
-    }
+            dataFetched: false
+        };
+    };
 
-    async fetchUsers(){
-        const response = await fetch('/data/users.json');
-        const data = await response.json();
-        this.setState({
-            users: data.users,
-            usersFetched: true
-        });
-    }
+    async fetchData() {
+        const urls = ['/data/users.json', '/data/transactions.json'];
+        const requests = urls.map(url => fetch(url));
 
-    async fetchTransactions(){
-        const response = await fetch('/data/transactions.json');
-        const data = await response.json();
-        this.setState({
-            transactions: data.transactions,
-            transactionsFetched: true
-        });
-    }
+        Promise.all(requests)
+            .then(async res => {
+                const [res1, res2] = res;
+                const json1 = await res1.json();
+                const json2 = await res2.json();
+                this.setState({
+                    users: json1.users,
+                    transactions: json2.transactions,
+                    dataFetched: true,
+                }, this.mapTransactions);
+            });
+    };
 
-    mapTransactions(){
+    mapTransactions() {
         const { users, transactions } = this.state;
+        console.log(users, transactions);
+        
         this.mappedTransactions = {};
         users.forEach(user => {
             this.mappedTransactions[user.id] = transactions.filter(t => t.userid === user.id);
         });
-    }
+        this.setState({ mappedTransactions: this.mappedTransactions });
+    };
 
-    componentDidMount(){
-        this.fetchUsers();
-        this.fetchTransactions();
-    }
-    
-    render(){
-        this.mapTransactions();
-        const { users, usersFetched, transactionsFetched } = this.state;
-        console.log(this.mappedTransactions);
- 
+    componentDidMount() {
+        this.fetchData();
+    };
+
+    render() {
+        const { users, dataFetched, mappedTransactions } = this.state;
+
         return (
             <>
                 <h2>Users - Points</h2>
-                {usersFetched && transactionsFetched && users.map(user => <UserDetail key={user.id} user={user} transactions={this.mappedTransactions[user.id]} />)}
+                {dataFetched && mappedTransactions && users.map(user => <UserDetail key={user.id} user={user} transactions={mappedTransactions[user.id]} />)}
             </>
-        )
-    }
-
-}
+        );
+    };
+};
 
 export default UserList;
